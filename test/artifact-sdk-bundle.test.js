@@ -228,10 +228,13 @@ function bootSdk({
         altKey: false,
         ...modifiers,
         defaultPrevented: false,
+        propagationStopped: false,
         preventDefault() {
           event.defaultPrevented = true;
         },
-        stopPropagation() {},
+        stopPropagation() {
+          event.propagationStopped = true;
+        },
       };
       listener.handler(event);
       return event;
@@ -818,6 +821,11 @@ test("a plain click on a link follows it in a new tab instead of annotating", ()
     const event = sdk.click(target);
 
     assert.equal(event.defaultPrevented, false, "the artifact's own click handlers still run");
+    assert.equal(
+      event.propagationStopped,
+      false,
+      "the click is not swallowed, so the artifact's own click handlers still run",
+    );
     assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
 
     // The swap is undone before the next click, so every click starts from the author's markup.
