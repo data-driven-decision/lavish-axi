@@ -2631,9 +2631,13 @@ export function createArtifactSdk(
         return;
       const target = annotationTargetEl(event.target);
       if (target === selected) return;
+      // The outline is the promise that a click annotates this element. A plain click on a link
+      // follows it instead, so a link must not wear that promise; the pointer cursor already
+      // marks it as a link, and Alt+click is the gesture that annotates it.
+      const isLink = !!target?.closest?.("a[href]");
       if (hovered && hovered !== selected) clearHighlight(hovered);
-      hovered = target;
-      highlightElement(hovered);
+      hovered = isLink ? null : target;
+      if (hovered) highlightElement(hovered);
     },
     true,
   );

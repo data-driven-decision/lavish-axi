@@ -239,6 +239,12 @@ function bootSdk({
       listener.handler(event);
       return event;
     },
+    // Moves the mouse over `target`, as the SDK's hover affordance sees it.
+    hover(target) {
+      const listener = documentListeners.find((entry) => entry.type === "mouseover");
+      assert.ok(listener, "the SDK registers a document mouseover listener");
+      listener.handler({ target });
+    },
     // Releases the mouse over `target` with `text` selected inside it, as a drag-select would.
     selectText(target, text) {
       const textNode = { nodeType: 3, parentElement: target, parentNode: { childNodes: [] } };
@@ -761,8 +767,20 @@ function buildMermaidNode(sdk) {
       .some((part) => part.trim() === "g.node") || matchesTag(selectorList);
   const label = appendTo(node, cell("span", "Start"));
   const shape = appendTo(node, createElement("rect"));
-  return { label, shape };
+  return { label, shape, node };
 }
+
+test("annotation hover and click resolve to the same Mermaid node element", () => {
+  const sdk = bootSdk();
+  const { shape, node } = buildMermaidNode(sdk);
+
+  sdk.hover(shape);
+  assert.notEqual(node.style.outline, undefined, "the node is outlined on hover");
+  assert.equal(shape.style.outline, undefined, "the shape inside it is not what is outlined");
+
+  sdk.click(shape);
+  assert.match(sdk.card().innerHTML, /Annotate node/, "the click annotates the same node");
+});
 
 test("a note queued from a diagram node's label opens again from the node's shape", () => {
   const sdk = bootSdk();
@@ -1042,6 +1060,19 @@ test("a non-http link keeps the browser's own handling", () => {
   assert.equal(event.defaultPrevented, false);
   assert.equal(link.getAttribute("target"), null);
   assert.equal(sdk.cards().length, 0);
+});
+
+test("hovering a link does not mark it as an annotation target", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk);
+  const paragraph = appendTo(sdk.body, cell("p", "Just prose"));
+
+  sdk.hover(paragraph);
+  assert.notEqual(paragraph.style.outline, undefined, "a plain element still gets the outline");
+
+  sdk.hover(link);
+  assert.equal(link.style.outline, undefined, "a link is not an annotation target");
+  assert.equal(paragraph.style.outline, "", "the outline it had is cleared");
 });
 
 test("a modified click on something that is not a link still annotates", () => {

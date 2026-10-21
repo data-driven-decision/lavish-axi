@@ -649,7 +649,7 @@ test("annotation hover and click resolve to the same Mermaid node element", () =
 
   assert.match(js, /function annotationTargetEl/);
   assert.match(js, /mermaidNodeElement\(el\) \|\| el/);
-  assert.match(js, /hovered = target/);
+  assert.match(js, /const target = annotationTargetEl\(event\.target\)/);
   assert.match(js, /anchor = annotationTargetEl\(target\)/);
 });
 
