@@ -2682,11 +2682,16 @@ export function createArtifactSdk(
       // Cmd-click (macOS) or Ctrl-click (elsewhere) is the browser's own "open in a new tab"
       // gesture, so it is left alone.
       const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+      // A link inside a native control, an editable region, or a Lavish action is never
+      // annotated, so its click reaches the browser - an Alt+click too, where the browser would
+      // otherwise take the linked file for a download.
+      const browserHandlesTheClick = isLavishAction(event.target) || isInteractiveControl(event.target);
       // The artifact frame is the review, so a link click may never navigate it away - not even
-      // from inside a control the SDK leaves to the browser. The swap happens before the guards
-      // below, so the control or the Lavish action still gets its click.
-      if (linkClick && !followModifier) followLink(link);
-      if (isLavishUi(event.target) || isLavishAction(event.target) || isInteractiveControl(event.target)) return;
+      // from inside a control the SDK leaves to the browser, and not even on an Alt+click. The
+      // swap happens before the guards below, so the control or the Lavish action still gets its
+      // click and the link there is not annotated.
+      if (link && !followModifier && (linkClick || browserHandlesTheClick)) followLink(link);
+      if (isLavishUi(event.target) || browserHandlesTheClick) return;
       // The link branch runs before the queued-note branch, so following a link never re-opens a
       // note.
       if (linkClick) {
