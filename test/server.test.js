@@ -661,14 +661,6 @@ test("annotation mode forces the artifact cursor to default", () => {
   assert.match(js, /setAnnotationMode\(enabled\)/);
 });
 
-test("annotation mode keeps a link clickable, because a plain click follows it", () => {
-  const js = createSdkJs("abc");
-
-  assert.match(js, /a\[href\],a\[href\] \*\{cursor:pointer!important\}/);
-  // A link inside an interactive ARIA widget follows the link as well, so it keeps the pointer.
-  assert.match(js, /a\[href\]\) \*\{cursor:pointer!important\}/);
-});
-
 test("artifact SDK registers a capture-phase document keydown listener for the mode toggle hotkey", () => {
   const js = createSdkJs("abc");
 

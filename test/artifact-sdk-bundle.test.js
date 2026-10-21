@@ -49,7 +49,7 @@ function createElement(tag) {
     removeAttribute(name) {
       attributes.delete(name);
     },
-    // A real anchor exposes the resolved absolute URL, not the raw attribute.
+    // A real HTML anchor exposes the resolved absolute URL, not the raw attribute.
     get href() {
       const raw = attributes.get("href");
       return raw === undefined ? "" : new URL(String(raw), FIXTURE_BASE_URL).href;
@@ -163,12 +163,17 @@ function bootSdk({
       observe() {}
       disconnect() {}
     },
-    URL: {
-      createObjectURL() {
-        return "blob:lavish-test";
+    URL: Object.assign(
+      function sandboxUrl(raw, base) {
+        return new URL(raw, base);
       },
-      revokeObjectURL() {},
-    },
+      {
+        createObjectURL() {
+          return "blob:lavish-test";
+        },
+        revokeObjectURL() {},
+      },
+    ),
     getComputedStyle: () => ({}),
     setTimeout: scheduleTimer,
     clearTimeout: cancelTimer,
@@ -179,7 +184,7 @@ function bootSdk({
       head,
       body,
       activeElement: body,
-      baseURI: "http://127.0.0.1/artifact/abc/index.html",
+      baseURI: FIXTURE_BASE_URL,
       addEventListener: (type, handler) => documentListeners.push({ type, handler }),
       removeEventListener() {},
       createElement,
@@ -814,7 +819,39 @@ test("a plain click on a link follows it in a new tab instead of annotating", ()
 
     assert.equal(event.defaultPrevented, false, "the artifact's own click handlers still run");
     assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+
+    // The swap is undone before the next click, so every click starts from the author's markup.
+    sdk.runTimers();
+    assert.equal(link.getAttribute("target"), null);
   }
+  assert.equal(sdk.cards().length, 0);
+});
+
+// An SVG anchor exposes an animated string instead of a URL, so a link that reads the property
+// never learns where it points - and the click's default action would navigate the artifact
+// frame away, losing the review.
+test("a plain click on an SVG link opens it beside the review instead of navigating the frame", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk);
+  Object.defineProperty(link, "href", { value: { baseVal: "https://example.com/spec" } });
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the artifact's own click handlers still run");
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+  assert.equal(sdk.cards().length, 0);
+});
+
+// A relative href points at another document, so it has to open beside the review like an
+// absolute one - which only works if the link is resolved against the artifact's own URL.
+test("a plain click on a relative link opens it beside the review", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk, "other.html");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
   assert.equal(sdk.cards().length, 0);
 });
 
