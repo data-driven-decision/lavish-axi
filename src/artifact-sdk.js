@@ -1204,7 +1204,7 @@ export function createArtifactSdk(
       style = document.createElement("style");
       style.id = "lavish-cursor-style";
       style.textContent =
-        ":root{--lavish-accent:#f4c95d;--lavish-annotate-outline:2px solid var(--lavish-accent);--lavish-annotate-offset:2px}*{cursor:default!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']):not(a[href])),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']):not(a[href])) *{cursor:pointer!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']) a[href]),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']) a[href]) *{cursor:default!important}[data-lavish-action],[data-lavish-action] *{cursor:pointer!important}input,textarea,[contenteditable]:not([contenteditable='false']){cursor:text!important}button,select,label,option,input[type='button'],input[type='submit'],input[type='reset'],input[type='checkbox'],input[type='radio'],input[type='file'],input[type='color'],input[type='range'],input[type='image']{cursor:pointer!important}";
+        ":root{--lavish-accent:#f4c95d;--lavish-annotate-outline:2px solid var(--lavish-accent);--lavish-annotate-offset:2px}*{cursor:default!important}a[href],a[href] *{cursor:pointer!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']):not(a[href])),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']):not(a[href])) *{cursor:pointer!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']) a[href]),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem']) a[href]) *{cursor:pointer!important}[data-lavish-action],[data-lavish-action] *{cursor:pointer!important}input,textarea,[contenteditable]:not([contenteditable='false']){cursor:text!important}button,select,label,option,input[type='button'],input[type='submit'],input[type='reset'],input[type='checkbox'],input[type='radio'],input[type='file'],input[type='color'],input[type='range'],input[type='image']{cursor:pointer!important}";
       document.head.appendChild(style);
     }
     if (!annotationMode && style) style.remove();
@@ -2262,6 +2262,50 @@ export function createArtifactSdk(
     return /Mac|iP(hone|ad|od)/.test(navigator.platform);
   }
 
+  function stripFragment(url) {
+    const index = url.indexOf("#");
+    return index < 0 ? url : url.slice(0, index);
+  }
+
+  // The resolved absolute URL of a link. An SVG anchor exposes an animated string instead of a
+  // URL, so anything that is not a plain string is treated as no URL at all.
+  function linkHref(anchor) {
+    const href = /** @type {{ href?: unknown }} */ (anchor).href;
+    return typeof href === "string" ? href : "";
+  }
+
+  // A same-document anchor is a scroll inside the artifact, not a navigation away from it.
+  function isSameDocumentLink(anchor) {
+    const href = linkHref(anchor);
+    const base = String(document.baseURI || "");
+    if (!href || !base) return false;
+    return stripFragment(href) === stripFragment(base);
+  }
+
+  // The browser resolves a link's target when it performs the click's default action, which
+  // happens after the event finishes dispatching. Swapping the target for the click and putting
+  // it back afterwards therefore keeps the artifact's own click handlers in charge: a handler
+  // that calls preventDefault still wins and no second tab opens, while a link nobody handles
+  // opens in a new tab and the artifact frame keeps the review instead of navigating away.
+  function openLinkInNewTab(anchor) {
+    const previous = anchor.getAttribute("target");
+    anchor.setAttribute("target", "_blank");
+    setTimeout(() => {
+      if (previous === null) anchor.removeAttribute("target");
+      else anchor.setAttribute("target", previous);
+    }, 0);
+  }
+
+  // Follows a link the way a browser does: a same-document anchor scrolls in place, a link to
+  // another document opens beside the review, and a link the author marked for a new tab or a
+  // download - or a scheme the browser owns, such as mailto: - keeps the browser's behavior.
+  function followLink(anchor) {
+    if (anchor.hasAttribute("target") || anchor.hasAttribute("download")) return;
+    if (isSameDocumentLink(anchor)) return;
+    if (!/^https?:/i.test(linkHref(anchor))) return;
+    openLinkInNewTab(anchor);
+  }
+
   function showAnnotationCard(target, options = {}) {
     cancelPendingDraftRestore();
     const root = ensureShadow();
@@ -2618,14 +2662,20 @@ export function createArtifactSdk(
         isInteractiveControl(event.target)
       )
         return;
-      // Cmd-click (macOS) or Ctrl-click (elsewhere) on a link follows it (the browser opens a new
-      // tab) instead of annotating, so links stay usable without leaving annotate mode. Meta off
-      // macOS is the Super/Windows key, not a follow gesture, so it annotates like a plain click.
-      // Checked before the queued-note branch so the modifier always wins, and it clears a pending
-      // text-selection swallow so the next plain click is not eaten.
-      const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
-      if (followModifier && /** @type {Element} */ (event.target)?.closest?.("a[href]")) {
+      // A plain click on a link follows it, in annotate mode too: the reviewer clicked a link, so
+      // the link should do what a link does. Alt+click (Option+click on macOS) is the deliberate
+      // "annotate this link" gesture - the one modifier a browser does not already spend on a
+      // link - and it falls through to the ordinary annotation path below. The link branch runs
+      // before the queued-note branch, so following a link never re-opens a note, and it clears
+      // a pending text-selection swallow so the next plain click is not eaten.
+      const link = /** @type {Element} */ (event.target)?.closest?.("a[href]") || null;
+      if (link && !event.altKey) {
         ignoreNextClick = false;
+        // Cmd-click (macOS) or Ctrl-click (elsewhere) is the browser's own "open in a new tab"
+        // gesture, so it is left alone. A plain click follows the link too, and a link to another
+        // document opens beside the review so the artifact frame keeps the review.
+        const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+        if (!followModifier) followLink(link);
         return;
       }
       event.preventDefault();
