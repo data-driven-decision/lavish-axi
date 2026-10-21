@@ -2302,11 +2302,22 @@ export function createArtifactSdk(
     }, 0);
   }
 
+  // An author target of _self, _parent or _top - or an empty one - would navigate the artifact
+  // frame, or the review page, away. A named window or _blank is the author's own choice and
+  // keeps the browser's behavior.
+  function hasHonoredTarget(anchor) {
+    const target = anchor.getAttribute("target");
+    if (target === null) return false;
+    const value = target.trim().toLowerCase();
+    return value !== "" && value !== "_self" && value !== "_parent" && value !== "_top";
+  }
+
   // Follows a link the way a browser does: a same-document anchor scrolls in place, a link to
   // another document opens beside the review, and a link the author marked for a new tab or a
   // download - or a scheme the browser owns, such as mailto: - keeps the browser's behavior.
   function followLink(anchor) {
-    if (anchor.hasAttribute("target") || anchor.hasAttribute("download")) return;
+    if (anchor.hasAttribute("download")) return;
+    if (hasHonoredTarget(anchor)) return;
     if (isSameDocumentLink(anchor)) return;
     if (!/^https?:/i.test(linkHref(anchor))) return;
     openLinkInNewTab(anchor);
@@ -2661,27 +2672,31 @@ export function createArtifactSdk(
   document.addEventListener(
     "click",
     (event) => {
-      if (
-        !annotationMode ||
-        isLavishUi(event.target) ||
-        isLavishAction(event.target) ||
-        isInteractiveControl(event.target)
-      )
-        return;
-      // A plain click on a link follows it, in annotate mode too: the reviewer clicked a link, so
-      // the link should do what a link does. Alt+click (Option+click on macOS) is the deliberate
-      // "annotate this link" gesture - the one modifier a browser does not already spend on a
-      // link - and it falls through to the ordinary annotation path below. The link branch runs
-      // before the queued-note branch, so following a link never re-opens a note, and it clears
-      // a pending text-selection swallow so the next plain click is not eaten.
+      if (!annotationMode) return;
+      // A click on a link is a navigation, not an annotation, in annotate mode too: the reviewer
+      // clicked a link, so the link should do what a link does. Alt+click (Option+click on macOS)
+      // is the deliberate "annotate this link" gesture - the one modifier a browser does not
+      // already spend on a link - and it falls through to the ordinary annotation path below.
       const link = /** @type {Element} */ (event.target)?.closest?.("a[href]") || null;
-      if (link && !event.altKey) {
-        ignoreNextClick = false;
-        // Cmd-click (macOS) or Ctrl-click (elsewhere) is the browser's own "open in a new tab"
-        // gesture, so it is left alone. A plain click follows the link too, and a link to another
-        // document opens beside the review so the artifact frame keeps the review.
-        const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
-        if (!followModifier) followLink(link);
+      const linkClick = !!link && !event.altKey;
+      // Cmd-click (macOS) or Ctrl-click (elsewhere) is the browser's own "open in a new tab"
+      // gesture, so it is left alone.
+      const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+      // The artifact frame is the review, so a link click may never navigate it away - not even
+      // from inside a control the SDK leaves to the browser. The swap happens before the guards
+      // below, so the control or the Lavish action still gets its click.
+      if (linkClick && !followModifier) followLink(link);
+      if (isLavishUi(event.target) || isLavishAction(event.target) || isInteractiveControl(event.target)) return;
+      // The link branch runs before the queued-note branch, so following a link never re-opens a
+      // note.
+      if (linkClick) {
+        // A click that ends a text selection belongs to the selection, not to the link: the
+        // selection annotates the text and the link is not followed.
+        if (ignoreNextClick) {
+          ignoreNextClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }
         return;
       }
       event.preventDefault();

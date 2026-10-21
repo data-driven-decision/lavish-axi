@@ -938,6 +938,66 @@ test("a link the author marked for a new tab keeps the browser's own handling", 
   assert.equal(sdk.cards().length, 0);
 });
 
+test("a link the author marked for a named window keeps the browser's own handling", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk);
+  link.setAttribute("target", "spec-window");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(link.getAttribute("target"), "spec-window", "the author's target is left alone");
+  assert.equal(sdk.cards().length, 0);
+});
+
+// A target that would navigate the artifact frame, or the review page, away is treated as no
+// target at all: the link opens beside the review and the review survives.
+for (const target of ["_self", "_parent", "_top", ""]) {
+  test(`a link marked target="${target}" opens beside the review instead of navigating away`, () => {
+    const sdk = bootSdk();
+    const { link } = buildLink(sdk);
+    link.setAttribute("target", target);
+
+    const event = sdk.click(link);
+
+    assert.equal(event.defaultPrevented, false, "the browser's own link handling runs");
+    assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+    assert.equal(sdk.cards().length, 0);
+
+    sdk.runTimers();
+    assert.equal(link.getAttribute("target"), target, "the author's target is restored");
+  });
+}
+
+// The artifact frame is the review, so a link inside a control the SDK leaves to the browser
+// must not navigate that frame away either - while the control still gets its own click.
+test("a link inside a native control opens beside the review instead of navigating the frame", () => {
+  const sdk = bootSdk();
+  const label = appendTo(sdk.body, cell("label", "See "));
+  const link = appendTo(label, cell("a", "the spec"));
+  link.setAttribute("href", "https://example.com/spec");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the control still gets its click");
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+  assert.equal(sdk.cards().length, 0, "a native control is not annotated");
+});
+
+test("a link inside a Lavish action opens beside the review instead of navigating the frame", () => {
+  const sdk = bootSdk();
+  const action = appendTo(sdk.body, cell("div", "Choose"));
+  action.setAttribute("data-lavish-action", "choose");
+  const link = appendTo(action, cell("a", "the spec"));
+  link.setAttribute("href", "https://example.com/spec");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the Lavish action still gets its click");
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+  assert.equal(sdk.cards().length, 0, "a Lavish action is not annotated");
+});
+
 test("a non-http link keeps the browser's own handling", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk, "mailto:agent@example.com");
@@ -995,6 +1055,22 @@ test("Alt+click on a link with a queued note re-opens that note", () => {
   );
 });
 
+test("a click that ends a text selection on a link annotates the text instead of following it", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk);
+
+  sdk.selectText(link, "Read the spec");
+  assert.match(sdk.card().innerHTML, /Annotate text/, "the selection opens a text annotation card");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, true, "the click belongs to the selection, not to the link");
+  assert.equal(sdk.cards().length, 1, "the selection annotates the text");
+
+  sdk.runTimers();
+  assert.equal(link.getAttribute("target"), null, "the artifact's markup is left as it was");
+});
+
 test("a plain click on a link after a text selection does not eat the next plain click", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk);
@@ -1002,8 +1078,8 @@ test("a plain click on a link after a text selection does not eat the next plain
   sdk.selectText(paragraph, "prose");
   assert.match(sdk.card().innerHTML, /Annotate text/, "the selection opens a text annotation card");
 
-  const followed = sdk.click(link);
-  assert.equal(followed.defaultPrevented, false);
+  const swallowed = sdk.click(link);
+  assert.equal(swallowed.defaultPrevented, true, "the click belongs to the selection");
 
   sdk.click(paragraph);
 
