@@ -1024,7 +1024,7 @@ test("a link inside a Lavish action opens beside the review instead of navigatin
   assert.equal(sdk.cards().length, 0, "a Lavish action is not annotated");
 });
 
-test("an Alt+click on a link inside a native control opens beside the review instead of downloading", () => {
+test("an Alt+click on a link inside a native control keeps the review from navigating away", () => {
   const sdk = bootSdk();
   const label = appendTo(sdk.body, cell("label", "See "));
   const link = appendTo(label, cell("a", "the spec"));
@@ -1037,7 +1037,7 @@ test("an Alt+click on a link inside a native control opens beside the review ins
   assert.equal(sdk.cards().length, 0, "a native control is not annotated");
 });
 
-test("an Alt+click on a link inside a Lavish action opens beside the review instead of downloading", () => {
+test("an Alt+click on a link inside a Lavish action keeps the review from navigating away", () => {
   const sdk = bootSdk();
   const action = appendTo(sdk.body, cell("div", "Choose"));
   action.setAttribute("data-lavish-action", "choose");
@@ -1051,14 +1051,14 @@ test("an Alt+click on a link inside a Lavish action opens beside the review inst
   assert.equal(sdk.cards().length, 0, "a Lavish action is not annotated");
 });
 
-test("a non-http link keeps the browser's own handling", () => {
+test("a link with another scheme also opens beside the review", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk, "mailto:agent@example.com");
 
   const event = sdk.click(link);
 
-  assert.equal(event.defaultPrevented, false);
-  assert.equal(link.getAttribute("target"), null);
+  assert.equal(event.defaultPrevented, false, "the browser's own handling still runs");
+  assert.equal(link.getAttribute("target"), "_blank", "the link cannot navigate the frame away");
   assert.equal(sdk.cards().length, 0);
 });
 

@@ -2313,13 +2313,13 @@ export function createArtifactSdk(
   }
 
   // Follows a link the way a browser does: a same-document anchor scrolls in place, a link to
-  // another document opens beside the review, and a link the author marked for a new tab or a
+  // another document opens beside the review - whatever its scheme, so a data: or blob: link
+  // cannot navigate the artifact frame away either - and a link the author marked for a new tab or a
   // download - or a scheme the browser owns, such as mailto: - keeps the browser's behavior.
   function followLink(anchor) {
     if (anchor.hasAttribute("download")) return;
     if (hasHonoredTarget(anchor)) return;
     if (isSameDocumentLink(anchor)) return;
-    if (!/^https?:/i.test(linkHref(anchor))) return;
     openLinkInNewTab(anchor);
   }
 
