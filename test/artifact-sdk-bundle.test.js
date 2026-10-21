@@ -128,6 +128,8 @@ function bootSdk({
   revisionMarkElements = [],
   htmlAnnotate = null,
   platform = "Linux",
+  baseURI = FIXTURE_BASE_URL,
+  documentUrl = FIXTURE_BASE_URL,
 } = {}) {
   const posted = [];
   const documentListeners = [];
@@ -184,7 +186,8 @@ function bootSdk({
       head,
       body,
       activeElement: body,
-      baseURI: FIXTURE_BASE_URL,
+      baseURI,
+      URL: documentUrl,
       addEventListener: (type, handler) => documentListeners.push({ type, handler }),
       removeEventListener() {},
       createElement,
@@ -1051,14 +1054,38 @@ test("an Alt+click on a link inside a Lavish action keeps the review from naviga
   assert.equal(sdk.cards().length, 0, "a Lavish action is not annotated");
 });
 
-test("a link with another scheme also opens beside the review", () => {
+test("a link the browser hands to another app keeps the browser's own handling", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk, "mailto:agent@example.com");
 
   const event = sdk.click(link);
 
   assert.equal(event.defaultPrevented, false, "the browser's own handling still runs");
+  assert.equal(link.getAttribute("target"), null, "Lavish does not touch the link");
+  assert.equal(sdk.cards().length, 0);
+});
+
+test("a data: link opens beside the review instead of navigating the frame", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk, "data:text/plain,hello");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the browser's own handling still runs");
   assert.equal(link.getAttribute("target"), "_blank", "the link cannot navigate the frame away");
+  assert.equal(sdk.cards().length, 0);
+});
+
+// The browser decides "same document" against the document's own URL, so a fragment href in
+// an artifact that declares a base URI leaves the document and has to open beside the review.
+test("a fragment link in an artifact with a base URI opens beside the review", () => {
+  const sdk = bootSdk({ baseURI: "https://cdn.example.com/" });
+  const { link } = buildLink(sdk, "#section");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the browser's own handling still runs");
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
   assert.equal(sdk.cards().length, 0);
 });
 
@@ -1149,5 +1176,24 @@ test("a plain click on a link after a text selection does not eat the next plain
 
   sdk.click(paragraph);
 
+  assert.match(sdk.card().innerHTML, /Annotate &lt;p&gt;/);
+});
+
+// The platform's follow gesture belongs to the browser, so a pending text-selection swallow
+// never eats it.
+test("a Ctrl-click on a link after a text selection is not swallowed", () => {
+  const sdk = bootSdk({ platform: "Linux x86_64" });
+  const { link } = buildLink(sdk);
+  const paragraph = appendTo(sdk.body, cell("p", "Just prose"));
+  sdk.selectText(paragraph, "prose");
+
+  const event = sdk.click(link, { ctrlKey: true });
+
+  assert.equal(event.defaultPrevented, false, "the browser's own link handling runs");
+  assert.equal(event.propagationStopped, false, "the click is not swallowed");
+  assert.equal(link.getAttribute("target"), null, "Lavish does not touch the link");
+
+  // The gesture clears the pending swallow, so the next plain click is not eaten either.
+  sdk.click(paragraph);
   assert.match(sdk.card().innerHTML, /Annotate &lt;p&gt;/);
 });

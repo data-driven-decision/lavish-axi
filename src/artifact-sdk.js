@@ -2281,11 +2281,14 @@ export function createArtifactSdk(
   }
 
   // A same-document anchor is a scroll inside the artifact, not a navigation away from it.
+  // The browser decides "same document" against the document's own URL, not against its base
+  // URI: an artifact that declares a <base href> resolves a fragment href against that base,
+  // so the browser leaves the document and the link needs the swap.
   function isSameDocumentLink(anchor) {
     const href = linkHref(anchor);
-    const base = String(document.baseURI || "");
-    if (!href || !base) return false;
-    return stripFragment(href) === stripFragment(base);
+    const documentUrl = String(document.URL || document.baseURI || "");
+    if (!href || !documentUrl) return false;
+    return stripFragment(href) === stripFragment(documentUrl);
   }
 
   // The browser resolves a link's target when it performs the click's default action, which
@@ -2312,14 +2315,59 @@ export function createArtifactSdk(
     return value !== "" && value !== "_self" && value !== "_parent" && value !== "_top";
   }
 
+  // A scheme the browser hands to another app - mailto:, tel: and the rest - is not a
+  // navigation of this frame, so the browser's own behavior stays. Every other scheme -
+  // http(s), data:, blob: - navigates the artifact frame unless the target is swapped.
+  const EXTERNAL_LINK_SCHEMES = new Set([
+    "mailto",
+    "tel",
+    "sms",
+    "callto",
+    "magnet",
+    "news",
+    "nntp",
+    "irc",
+    "ircs",
+    "im",
+    "xmpp",
+    "sip",
+    "sips",
+    "skype",
+    "msteams",
+    "zoommtg",
+    "webcal",
+    "feed",
+    "itms",
+    "itms-apps",
+    "market",
+    "intent",
+    "bitcoin",
+    "geo",
+    "whatsapp",
+    "tg",
+    "matrix",
+  ]);
+
+  function linkScheme(anchor) {
+    const href = linkHref(anchor);
+    if (!href) return "";
+    try {
+      return new URL(href).protocol.replace(/:$/, "").toLowerCase();
+    } catch {
+      return "";
+    }
+  }
+
   // Follows a link the way a browser does: a same-document anchor scrolls in place, a link to
   // another document opens beside the review - whatever its scheme, so a data: or blob: link
   // cannot navigate the artifact frame away either - and a link the author marked for a new tab or a
-  // download - or a scheme the browser owns, such as mailto: - keeps the browser's behavior.
+  // download - or a scheme the browser hands to another app, such as mailto: - keeps the browser's
+  // behavior.
   function followLink(anchor) {
     if (anchor.hasAttribute("download")) return;
     if (hasHonoredTarget(anchor)) return;
     if (isSameDocumentLink(anchor)) return;
+    if (EXTERNAL_LINK_SCHEMES.has(linkScheme(anchor))) return;
     openLinkInNewTab(anchor);
   }
 
@@ -2684,8 +2732,13 @@ export function createArtifactSdk(
       const link = /** @type {Element} */ (event.target)?.closest?.("a[href]") || null;
       const linkClick = !!link && !event.altKey;
       // Cmd-click (macOS) or Ctrl-click (elsewhere) is the browser's own "open in a new tab"
-      // gesture, so it is left alone.
+      // gesture, so it is left alone: it is never swallowed, and it clears a pending
+      // text-selection swallow, so the next plain click is not eaten.
       const followModifier = isApplePlatform() ? event.metaKey : event.ctrlKey;
+      if (link && followModifier) {
+        ignoreNextClick = false;
+        return;
+      }
       // A link inside a native control, an editable region, or a Lavish action is never
       // annotated, so its click reaches the browser - an Alt+click too, where the browser would
       // otherwise take the linked file for a download.
@@ -2694,7 +2747,7 @@ export function createArtifactSdk(
       // from inside a control the SDK leaves to the browser, and not even on an Alt+click. The
       // swap happens before the guards below, so the control or the Lavish action still gets its
       // click and the link there is not annotated.
-      if (link && !followModifier && (linkClick || browserHandlesTheClick)) followLink(link);
+      if (link && (linkClick || browserHandlesTheClick)) followLink(link);
       if (isLavishUi(event.target) || browserHandlesTheClick) return;
       // The link branch runs before the queued-note branch, so following a link never re-opens a
       // note.
