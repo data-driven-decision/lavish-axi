@@ -906,6 +906,19 @@ test("a plain click on a same-document anchor scrolls the artifact instead of an
   assert.equal(sdk.cards().length, 0);
 });
 
+// A link whose address is the artifact's own URL is a reload, not a scroll, and the reload
+// replaces the artifact frame and takes the review's scroll position with it.
+test("a link to the artifact's own URL opens beside the review instead of reloading the frame", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk, "");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false, "the browser's own handling still runs");
+  assert.equal(link.getAttribute("target"), "_blank", "the link opens beside the review");
+  assert.equal(sdk.cards().length, 0);
+});
+
 test("Alt+click on a link annotates it instead of following it", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk);
@@ -915,6 +928,44 @@ test("Alt+click on a link annotates it instead of following it", () => {
   assert.equal(event.defaultPrevented, true);
   assert.equal(link.getAttribute("target"), null);
   assert.match(sdk.card().innerHTML, /Annotate &lt;a&gt;/);
+});
+
+// The hover rule treats every element inside a link as part of the link, so an Alt+click
+// annotates the link itself rather than the element that happened to be clicked.
+test("an Alt+click on a span inside a link annotates the link", () => {
+  const sdk = bootSdk();
+  const { inner } = buildLink(sdk);
+
+  const event = sdk.click(inner, { altKey: true });
+
+  assert.equal(event.defaultPrevented, true);
+  assert.match(sdk.card().innerHTML, /Annotate &lt;a&gt;/);
+  assert.doesNotMatch(sdk.card().innerHTML, /Annotate &lt;span&gt;/);
+});
+
+test("a note queued from inside a link is anchored on the link and re-opens from it", () => {
+  const onLink = bootSdk();
+  const { link } = buildLink(onLink);
+  onLink.click(link, { altKey: true });
+  const onTheLink = onLink.queue("Is this the right spec?");
+
+  const onSpan = bootSdk();
+  const { inner } = buildLink(onSpan);
+  onSpan.click(inner, { altKey: true });
+  const fromTheSpan = onSpan.queue("Is this the right spec?");
+
+  assert.equal(fromTheSpan.prompt.selector, onTheLink.prompt.selector, "the note lands on the link");
+
+  onSpan.sendChromeMessage({ type: "lavish:queuedAnchors", selectors: [fromTheSpan.prompt.selector] });
+  const postedBefore = onSpan.posted.length;
+
+  onSpan.click(inner, { altKey: true });
+
+  assert.equal(
+    onSpan.posted.slice(postedBefore).some((message) => message.type === "lavish:editQueuedAnchor"),
+    true,
+    "the note on the link is re-opened",
+  );
 });
 
 // Cmd-click (macOS) and Ctrl-click (elsewhere) are the browser's own "open in a new tab"

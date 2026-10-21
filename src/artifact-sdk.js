@@ -2283,11 +2283,14 @@ export function createArtifactSdk(
   // A same-document anchor is a scroll inside the artifact, not a navigation away from it.
   // The browser decides "same document" against the document's own URL, not against its base
   // URI: an artifact that declares a <base href> resolves a fragment href against that base,
-  // so the browser leaves the document and the link needs the swap.
+  // so the browser leaves the document and the link needs the swap. Only a fragment scrolls:
+  // an address without one that is the document's own URL is a reload, which replaces the
+  // artifact frame and takes the review with it.
   function isSameDocumentLink(anchor) {
     const href = linkHref(anchor);
     const documentUrl = String(document.URL || document.baseURI || "");
     if (!href || !documentUrl) return false;
+    if (!href.includes("#")) return false;
     return stripFragment(href) === stripFragment(documentUrl);
   }
 
@@ -2769,7 +2772,11 @@ export function createArtifactSdk(
       }
       // The clicked element's own selector, plus its diagram node's, so any click inside a node
       // finds the node's note again. A table cell's note stays on the exact element clicked.
-      const clicked = queuedAnchorSelectors.size ? context(event.target) : null;
+      // An Alt+click on a link annotates the link itself, not the element inside it that
+      // happened to be clicked, because the hover rule already treats every element inside a
+      // link as part of it.
+      const annotated = link || event.target;
+      const clicked = queuedAnchorSelectors.size ? context(annotated) : null;
       const node = clicked?.target?.type === "mermaid-node" ? clicked.target.selector : "";
       const selector = [clicked?.selector, node].find((candidate) => candidate && queuedAnchorSelectors.has(candidate));
       if (selector) {
@@ -2777,7 +2784,7 @@ export function createArtifactSdk(
         postArtifactMessage("lavish:editQueuedAnchor", { selector });
         return;
       }
-      showAnnotationCard(event.target);
+      showAnnotationCard(annotated);
     },
     true,
   );
