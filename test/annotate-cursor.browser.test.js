@@ -52,6 +52,7 @@ a, p, span, textarea, button { cursor: crosshair; }
 <a id="link" href="https://example.com/spec">Read the spec</a>
 <div id="widget" role="button"><a id="widget-link" href="https://example.com/other">A link inside a widget</a></div>
 <textarea id="notes"></textarea>
+<a id="editable-link" href="https://example.com/e"><span id="editable-in-link" contenteditable="true">Edit me</span></a>
 <button id="go" type="button">Send</button>
 <script>
 (function () {
@@ -70,6 +71,7 @@ a, p, span, textarea, button { cursor: crosshair; }
           link: cursorOf("#link"),
           linkInWidget: cursorOf("#widget-link"),
           notes: cursorOf("#notes"),
+          editableInLink: cursorOf("#editable-in-link"),
           button: cursorOf("#go"),
         },
         styleInstalled: Boolean(document.getElementById("lavish-cursor-style")),
@@ -158,6 +160,7 @@ test(
       // Everything else keeps the annotate-mode default, and the native controls keep theirs.
       assert.equal(probe.cursors.prose, "default", probe.cursors.prose);
       assert.equal(probe.cursors.notes, "text", probe.cursors.notes);
+      assert.equal(probe.cursors.editableInLink, "text", probe.cursors.editableInLink);
       assert.equal(probe.cursors.button, "pointer", probe.cursors.button);
     } finally {
       run(process.execPath, ["bin/lavish-axi.js", "stop", "--port", String(port)], lavishEnv, 15_000);
