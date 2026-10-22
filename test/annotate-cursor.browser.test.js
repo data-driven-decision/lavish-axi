@@ -53,6 +53,7 @@ a, p, span, textarea, button { cursor: crosshair; }
 <div id="widget" role="button"><a id="widget-link" href="https://example.com/other">A link inside a widget</a></div>
 <textarea id="notes"></textarea>
 <a id="editable-link" href="https://example.com/e"><span id="editable-in-link" contenteditable="true">Edit me</span></a>
+<a href="https://example.com/c"><input id="check-in-link" type="checkbox"><input id="button-in-link" type="button" value="Go"></a>
 <button id="go" type="button">Send</button>
 <script>
 (function () {
@@ -72,6 +73,8 @@ a, p, span, textarea, button { cursor: crosshair; }
           linkInWidget: cursorOf("#widget-link"),
           notes: cursorOf("#notes"),
           editableInLink: cursorOf("#editable-in-link"),
+          checkInLink: cursorOf("#check-in-link"),
+          buttonInLink: cursorOf("#button-in-link"),
           button: cursorOf("#go"),
         },
         styleInstalled: Boolean(document.getElementById("lavish-cursor-style")),
@@ -161,6 +164,8 @@ test(
       assert.equal(probe.cursors.prose, "default", probe.cursors.prose);
       assert.equal(probe.cursors.notes, "text", probe.cursors.notes);
       assert.equal(probe.cursors.editableInLink, "text", probe.cursors.editableInLink);
+      assert.equal(probe.cursors.checkInLink, "pointer", probe.cursors.checkInLink);
+      assert.equal(probe.cursors.buttonInLink, "pointer", probe.cursors.buttonInLink);
       assert.equal(probe.cursors.button, "pointer", probe.cursors.button);
     } finally {
       run(process.execPath, ["bin/lavish-axi.js", "stop", "--port", String(port)], lavishEnv, 15_000);

@@ -1116,6 +1116,19 @@ test("a link the browser hands to another app keeps the browser's own handling",
   assert.equal(sdk.cards().length, 0);
 });
 
+test("a download link still gets the swap so it cannot navigate the frame away", () => {
+  const sdk = bootSdk();
+  const { link } = buildLink(sdk);
+  link.setAttribute("download", "");
+
+  const event = sdk.click(link);
+
+  assert.equal(event.defaultPrevented, false);
+  assert.equal(link.getAttribute("target"), "_blank");
+  assert.equal(link.hasAttribute("download"), true, "the download attribute is left alone");
+  assert.equal(sdk.cards().length, 0);
+});
+
 test("a data: link opens beside the review instead of navigating the frame", () => {
   const sdk = bootSdk();
   const { link } = buildLink(sdk, "data:text/plain,hello");

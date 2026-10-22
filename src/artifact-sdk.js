@@ -1204,7 +1204,7 @@ export function createArtifactSdk(
       style = document.createElement("style");
       style.id = "lavish-cursor-style";
       style.textContent =
-        ":root{--lavish-accent:#f4c95d;--lavish-annotate-outline:2px solid var(--lavish-accent);--lavish-annotate-offset:2px}*{cursor:default!important}a[href],a[href] *{cursor:pointer!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem'])),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem'])) *{cursor:pointer!important}[data-lavish-action],[data-lavish-action] *{cursor:pointer!important}input,textarea,[contenteditable]:not([contenteditable='false']),a[href] input,a[href] textarea,a[href][contenteditable]:not([contenteditable='false']),a[href] [contenteditable]:not([contenteditable='false']){cursor:text!important}button,select,label,option,input[type='button'],input[type='submit'],input[type='reset'],input[type='checkbox'],input[type='radio'],input[type='file'],input[type='color'],input[type='range'],input[type='image']{cursor:pointer!important}";
+        ":root{--lavish-accent:#f4c95d;--lavish-annotate-outline:2px solid var(--lavish-accent);--lavish-annotate-offset:2px}*{cursor:default!important}a[href],a[href] *{cursor:pointer!important}:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem'])),:where(:is([role='button'],[role='checkbox'],[role='combobox'],[role='menuitem'],[role='menuitemcheckbox'],[role='menuitemradio'],[role='option'],[role='radio'],[role='switch'],[role='tab'],[role='treeitem'])) *{cursor:pointer!important}[data-lavish-action],[data-lavish-action] *{cursor:pointer!important}input:not([type='button'],[type='submit'],[type='reset'],[type='checkbox'],[type='radio'],[type='file'],[type='color'],[type='range'],[type='image']),textarea,[contenteditable]:not([contenteditable='false']),a[href] input:not([type='button'],[type='submit'],[type='reset'],[type='checkbox'],[type='radio'],[type='file'],[type='color'],[type='range'],[type='image']),a[href] textarea,a[href][contenteditable]:not([contenteditable='false']),a[href] [contenteditable]:not([contenteditable='false']){cursor:text!important}button,select,label,option,input[type='button'],input[type='submit'],input[type='reset'],input[type='checkbox'],input[type='radio'],input[type='file'],input[type='color'],input[type='range'],input[type='image']{cursor:pointer!important}";
       document.head.appendChild(style);
     }
     if (!annotationMode && style) style.remove();
@@ -2363,11 +2363,11 @@ export function createArtifactSdk(
 
   // Follows a link the way a browser does: a same-document anchor scrolls in place, a link to
   // another document opens beside the review - whatever its scheme, so a data: or blob: link
-  // cannot navigate the artifact frame away either - and a link the author marked for a new tab or a
-  // download - or a scheme the browser hands to another app, such as mailto: - keeps the browser's
-  // behavior.
+  // cannot navigate the artifact frame away either - and a link the author marked for a new tab -
+  // or a scheme the browser hands to another app, such as mailto: - keeps the browser's behavior.
+  // A download link is swapped too: a real download ignores the target, while a link the browser
+  // turns into a navigation opens beside the review.
   function followLink(anchor) {
-    if (anchor.hasAttribute("download")) return;
     if (hasHonoredTarget(anchor)) return;
     if (isSameDocumentLink(anchor)) return;
     if (EXTERNAL_LINK_SCHEMES.has(linkScheme(anchor))) return;
