@@ -1261,3 +1261,13 @@ test("a Ctrl-click on a link after a text selection is not swallowed", () => {
   sdk.click(paragraph);
   assert.match(sdk.card().innerHTML, /Annotate &lt;p&gt;/);
 });
+
+// A form control keeps its native cursor in annotation mode, and that rule keeps the plain
+// `input,textarea,[contenteditable]` shape the SDK contract names. Inside a link the rule
+// narrows, so a checkbox or a button in a link still shows the pointer.
+test("the annotation cursor rule keeps the plain form-control shape and narrows it inside a link", () => {
+  const js = createSdkJs("abc");
+
+  assert.match(js, /input,textarea,\[contenteditable\][^{]*\{cursor:text!important\}/);
+  assert.match(js, /a\[href\] input:not\([^)]*\[type='checkbox'\][^)]*\)/);
+});
