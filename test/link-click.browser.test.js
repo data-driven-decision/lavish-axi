@@ -243,7 +243,9 @@ test(
       ask({ action: "reset" });
       axi("click", ref(label));
       pause(600);
-      const opened = pages().filter((p) => !known.has(p.id)).map((p) => p.url);
+      const opened = pages()
+        .filter((p) => !known.has(p.id))
+        .map((p) => p.url);
       closeOpenedTabs(known);
       return { opened };
     }
@@ -253,7 +255,9 @@ test(
       ask({ action: "reset" });
       const result = ask({ action: "click", ...payload });
       pause(600);
-      const opened = pages().filter((p) => !known.has(p.id)).map((p) => p.url);
+      const opened = pages()
+        .filter((p) => !known.has(p.id))
+        .map((p) => p.url);
       closeOpenedTabs(known);
       return { ...result, opened };
     }
@@ -295,7 +299,10 @@ test(
       // (1) A plain click on an in-page anchor scrolls the artifact and opens no card.
       let click = realClick("Jump to section");
       state = read();
-      assert.ok(state.scrollY > 500, `the anchor scrolled the artifact ${JSON.stringify(state)} ${JSON.stringify(click)}`);
+      assert.ok(
+        state.scrollY > 500,
+        `the anchor scrolled the artifact ${JSON.stringify(state)} ${JSON.stringify(click)}`,
+      );
       assert.equal(state.card.open, false, "following a link opens no annotation card");
       assert.deepEqual(click.opened, [], "an in-page anchor opens no tab");
       assert.equal(state.loadId, loadId);
