@@ -2318,38 +2318,10 @@ export function createArtifactSdk(
     return value !== "" && value !== "_self" && value !== "_parent" && value !== "_top";
   }
 
-  // A scheme the browser hands to another app - mailto:, tel: and the rest - is not a
+  // A scheme the browser hands to an OS app - mailto:, tel: and sms: - is not a
   // navigation of this frame, so the browser's own behavior stays. Every other scheme -
   // http(s), data:, blob: - navigates the artifact frame unless the target is swapped.
-  const EXTERNAL_LINK_SCHEMES = new Set([
-    "mailto",
-    "tel",
-    "sms",
-    "callto",
-    "magnet",
-    "news",
-    "nntp",
-    "irc",
-    "ircs",
-    "im",
-    "xmpp",
-    "sip",
-    "sips",
-    "skype",
-    "msteams",
-    "zoommtg",
-    "webcal",
-    "feed",
-    "itms",
-    "itms-apps",
-    "market",
-    "intent",
-    "bitcoin",
-    "geo",
-    "whatsapp",
-    "tg",
-    "matrix",
-  ]);
+  const EXTERNAL_LINK_SCHEMES = new Set(["mailto", "tel", "sms"]);
 
   function linkScheme(anchor) {
     const href = linkHref(anchor);
