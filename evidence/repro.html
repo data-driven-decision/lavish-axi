@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="utf-8" />
+    <title>Link click repro</title>
+    <style>
+      body {
+        font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif;
+        margin: 0;
+        padding: 24px 32px;
+        line-height: 1.6;
+        color: #16202a;
+        background: #ffffff;
+      }
+      nav {
+        position: sticky;
+        top: 0;
+        background: #ffffff;
+        padding: 8px 0;
+        border-bottom: 1px solid #d7dee6;
+      }
+      nav a {
+        margin-right: 16px;
+      }
+      .spacer {
+        height: 1200px;
+        background: repeating-linear-gradient(180deg, #f7f9fb, #f7f9fb 40px, #eef2f6 40px, #eef2f6 80px);
+        border-radius: 8px;
+        margin: 16px 0;
+      }
+      section {
+        margin-top: 32px;
+        padding: 16px;
+        border: 1px solid #d7dee6;
+        border-radius: 8px;
+      }
+      .box {
+        margin-top: 24px;
+        padding: 16px;
+        background: #f4f6f9;
+        border-radius: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Link click reproduction</h1>
+    <nav id="toc">
+      <a href="#explain-1">说明 1</a>
+      <a href="#explain-2">说明 2</a>
+      <a href="#explain-3">说明 3</a>
+      <a href="https://example.com/lavish-external" id="external-link">外部链接</a>
+    </nav>
+
+    <main>
+      <section id="explain-1">
+        <h2>说明 1</h2>
+        <p>普通段落，用来测试非链接元素的标注。</p>
+      </section>
+      <div class="spacer" id="spacer"></div>
+      <section id="explain-2">
+        <h2>说明 2</h2>
+        <p>
+        <label for="labelled-note">See <a href="https://example.com/labelled-spec" id="labelled-link">the labelled spec</a></label>
+        <span data-lavish-action="custom-control"><a href="https://example.com/action-spec" id="action-link">the action spec</a></span>
+      </p>
+      <p id="text-target">第二段文字，可以被选中并标注为文本批注。</p>
+      </section>
+      <div class="spacer" id="spacer-2"></div>
+      <section id="explain-3">
+        <h2>说明 3</h2>
+        <p>第三段文字，页面内锚点应当滚动到这里而不是打开标注框。</p>
+        <div class="box" id="plain-box">这是一个普通 div，点击它应该打开标注框。</div>
+      </section>
+      <button id="alt-click-test" type="button">Alt+click the 说明 3 link</button>
+      <button id="select-text-test" type="button">Select the 说明 2 paragraph</button>
+    </main>
+    <script>
+      // Reports what a click actually did, so the browser check has hard evidence.
+      window.addEventListener(
+        "click",
+        (event) => {
+          const link = event.target && event.target.closest ? event.target.closest("a[href]") : null;
+          const href = link ? link.getAttribute("href") : "-";
+          setTimeout(() => {
+            document.title = `click href=${href} prevented=${event.defaultPrevented} cursor=${link ? getComputedStyle(link).cursor : "-"} hash=${location.hash} scrollY=${Math.round(
+              window.scrollY,
+            )}`;
+          }, 60);
+        },
+        true,
+      );
+      document.getElementById("alt-click-test").addEventListener("click", () => {
+        const link = document.querySelector('a[href="#explain-3"]');
+        link.dispatchEvent(
+          new MouseEvent("click", { altKey: true, bubbles: true, cancelable: true, view: window }),
+        );
+      });
+      document.getElementById("select-text-test").addEventListener("click", () => {
+        const target = document.getElementById("text-target");
+        const range = document.createRange();
+        range.selectNodeContents(target);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        target.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      });
+    </script>
+  </body>
+</html>
